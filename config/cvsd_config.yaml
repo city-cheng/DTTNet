@@ -1,0 +1,165 @@
+# dataloader configs
+num_gpus: 1
+gpus: '3'
+num_workers: 8
+batch_size: 1
+num_frames: &num_frames 5    # set to 1 for single image
+scale: 512  #rescale后的图片大小
+
+# model configs
+resize_features: False
+
+
+# diffusion
+accumulation: False
+timesteps: 10
+randsteps: 1
+diffusion: "ddim"
+time_difference: 1
+
+
+backbone: 
+    type: "VLDinoVisionTransformer"
+    adapter_config: 
+      type: "SemanticAdapter"
+      embed_dims: 1024
+      num_layers: 24
+      num_frames: *num_frames
+      hidden_dims: &hidden_dims 512 
+    patch_size: 16
+    embed_dim: 1024
+    depth: 24
+    num_heads: 16
+    mlp_ratio: 4
+    img_size: 512
+    ffn_layer: "mlp"
+    init_values: 0.00001
+    block_chunks: 0
+    qkv_bias: True
+    proj_bias: True
+    ffn_bias: True
+
+    init_cfg: 
+      type: "Pretrained"
+      checkpoint: "checkpoints/dinov2_converted.pth"
+
+
+
+
+vl_match:
+    type: "VLMatch"
+    embed_dim: *hidden_dims
+
+decode_head: 
+    type: 'UpPromptHead'
+    in_channels: [1024, 1024, 1024, 1024]
+    in_index: [0, 1, 2, 3]
+    channels: 128
+    dropout_ratio: 0.1
+    num_classes: 1
+    norm_cfg: 
+      type: 'BN'
+      requires_grad: True
+    align_corners: False
+    decoder_params: 
+      neck:
+        type: 'ShadowGRU'
+        in_dim: *hidden_dims
+        embed_dim: 768
+      embed_dim: 768
+      hidden_dims: *hidden_dims   
+      mlp_ratio: 4
+      drop_path: 0.1
+      num_heads: [4,4,4]
+      dySample_style: 'pl'
+      dyscope: True
+      kernel_size: 1
+    init_cfg:
+      type: "Kaiming"
+
+
+
+
+
+
+# paths
+data_root: "/share/datasets/CVSD_dataset"
+image_folder: "images"
+label_folder: "labels"
+image_ext: ".jpg"
+label_ext: ".png"
+time_clips: *num_frames  
+visha: 
+  data_root: "/share/datasets/CVSD_dataset"
+  im_root: "/share/datasets/CVSD_dataset/train/images"
+  gt_root: "/share/datasets/CVSD_dataset/train/labels"
+  test_gt_root: "/share/datasets/CVSD_dataset/test/labels"
+  val_root: "/share/datasets/CVSD_dataset"
+  val_im_root: "/share/datasets/CVSD_dataset/train/images"
+  val_gt_root: "/share/datasets/CVSD_dataset/train/labels"
+
+sbu: 
+  data_root: "/share/datasets/SBU-shadow"
+  im_root: "/share/datasets/SBU-shadow/SBUTrain4KRecoveredSmall/ShadowImages"
+  gt_root: "/share/datasets/SBU-shadow/SBUTrain4KRecoveredSmall/ShadowMasks"
+
+istd: 
+  data_root: "/share/datasets/ISTD_Dataset"
+  im_root: "/share/datasets/ISTD_Dataset/train/train_A"
+  gt_root: "/share/datasets/ISTD_Dataset/train/train_B"
+
+
+eval_threshold: 0.6
+
+
+eval_model_path: "YOUR_PATH"
+
+
+#training configs
+iterations: 25000  #总迭代次数
+finetune_learning_rate: 0.00005
+scratch_learning_rate: 0.00005
+weight_decay: 0.005
+steps: [5000,10000,15000]  #学习率变化的节点
+gamma: 0.8     #学习率调整的倍率
+amp: True
+find_unused_parameters: True
+seed: 216
+
+
+#loss functions
+dice_loss: True
+dice_weight: 1
+
+bce_loss: True
+bce_weight: 1
+
+hinge_loss: False
+hinge_loss_weight: 1
+
+scotch_loss: False
+scotch_loss_weight: 0.1
+
+bound_dice_weight: 1
+bound_bce_weight: 1
+
+
+
+
+# logging configs
+exp_id: "cvsd"  
+log_text_interval: 20
+log_image_interval: 2000
+save_network_interval: 10000
+save_checkpoint_interval: 40000
+eval_output_dir: "output_cvsd"
+check_grad_interval: 100000
+debug: False
+
+#训练命令
+# TORCH_DISTRIBUTED_DEBUG: DETAIL python -m torch.distributed.run --master_port 25763 --nproc_per_node: 2 train.py
+# TORCH_DISTRIBUTED_DEBUG=DETAIL python -m torch.distributed.run --master_port 25763 --nproc_per_node 1 train.py
+
+# nohup python -m torch.distributed.run --master_port 25763 --nproc_per_node 1 train.py > logs/cvsd.log 2>&1 &
+
+# nohup python eval_visha.py > logs/test_cvsd_0_005_216.log 2>&1 &

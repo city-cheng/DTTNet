@@ -1,2 +1,4 @@
 checkpoints
 saves
+__pycache__/
+*.pyc

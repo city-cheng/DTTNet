@@ -3,7 +3,7 @@ from os import path
 from config.load import load_config
 
 # config_path = "./config/cvsd_config.yaml"
-config_path = "./config/visha_config.yaml"
+config_path = "./config/config_eval.yaml"
 config = load_config(config_path)
 
 # TODO 设置gpu优先级
@@ -21,8 +21,6 @@ from progressbar import progressbar
 from utils.cal_scores import Visha_scores
 from torchvision.transforms import ToPILImage
 from model.shadowvl import ShadowVL
-# from model.shadowvl_decouple import ShadowVL
-# from model.shadowvl_v2 import ShadowVL2
 
 """
 Arguments loading
@@ -51,10 +49,7 @@ meta_loader = DataLoader(meta_dataset, batch_size=1, shuffle=False)
 
 
 model = ShadowVL(config)
-# model = ShadowVL2(config)
 pth_dict = torch.load(config["eval_model_path"])
-# #打印pth_dict所有的key值
-# print("#########################################")
 # print(pth_dict.keys())
 if "ckpt" in config["eval_model_path"]:
     pth_dict = pth_dict["model"]
@@ -111,14 +106,7 @@ def eval_visha(config):
             end = torch.cuda.Event(enable_timing=True)
             start.record()
 
-            # logits,_ = model(image, text=descriptions, is_train=False,clear_memory=False)
-            # (logits,bounds),_ = model(image, text=descriptions, is_train=False,clear_memory=False)
             logits,_ = model(image, text=descriptions, is_train=False,clear_memory=False)
-            # print(f'logits:{logits.shape}')
-            # b,t,c,h,w = image.shape
-            # logits = logits.reshape(b,t,*logits.shape[-3:]).squeeze(0) # b,1,h,w
-
-            # print("logits shape:", logits.shape)
 
             # Upsample to original size if needed
             # if need_resize:
@@ -126,9 +114,6 @@ def eval_visha(config):
                 logits, shape, mode="bilinear", align_corners=False
             )
             upscaled_mask = F.sigmoid(upscaled_mask)
-            # else:
-            # upscaled_mask = logits
-            # print("upscaled_mask shape:", upscaled_mask.shape)
 
             end.record()
             torch.cuda.synchronize()
@@ -139,12 +124,6 @@ def eval_visha(config):
             out_mask = torch.as_tensor(
                 upscaled_mask > config["eval_threshold"], dtype=torch.float32
             )  # b,1,H,W
-            # out = out_mask
-            # print(out_mask.unique())
-            # out_img = toImage(out_mask)
-
-            # out_mask = (out_mask.detach().cpu().numpy()).astype(np.uint8)
-            # print('out_mask shape:',out_mask.shape)
 
             # Save the mask
             for i in range(t):
